@@ -26,246 +26,78 @@ import openvisualizer_utils as u
 
 
 from eventBus import eventBusClient
-from openTun  import openTun
+from openBBRClient import openBBRClient
 
 #============================ defines =========================================
 
 #============================ helpers =========================================
+'''
 
-#=== misc
+eg NS(ARO):
+-----------
+0x6e,0x00,0x00,0x00,0x00,0x30,0x3a,0xff,
+0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+0x87,0x00,0x9f,0x39,0x00,0x00,0x00,0x00,
+0x20,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+0x01,0x01,0xaa,0xbb,0xcc,0x01,0xf5,0x00,
+0x21,0x02,0x00,0x00,0x01,0x79,0x00,0x05,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0xf5,0x00
+ 
+eg NA with ARO option status OK
+---------------------------------
+0x6e,0x00,0x00,0x00,0x00,0x28,0x3a,0xff,
+0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+0xff,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+0x88,0x00,0x9c,0x62,0xa0,0x00,0x00,0x00,
+0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+0x21,0x02,0x00,0x00,0x01,0x79,0x00,0x44,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0xf5,0x00,
+   
+'''
 
-def carry_around_add(a, b):
+#============================ test cases ============================================
+def testGenNSARO():
     '''
-    \brief Helper function for checksum calculation.
+    \brief calls inner functions to generate an NS ARO and checks result
     '''
-    c = a + b
-    return (c & 0xffff) + (c >> 16)
 
-def checksum(byteList):
-    '''
-    \brief Calculate the checksum over a byte list.
-    
-    This is the checksum calculation used in e.g. the ICMPv6 header.
-    
-    \return The checksum, a 2-byte integer.
-    '''
-    s = 0
-    for i in range(0, len(byteList), 2):
-        w = byteList[i] + (byteList[i+1] << 8)
-        s = carry_around_add(s, w)
-    return ~s & 0xffff
+    msgToGenerate = [                           0x6e,0x00,0x00,0x00,0x00,0x30,0x3a,0xff,
+        0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+        0xfe,0x80,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+        0x87,0x00,0x9f,0x39,0x00,0x00,0x00,0x00,
+        0x20,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0xa8,0xbb,0xcc,0xff,0xfe,0x01,0xf5,0x00,
+        0x01,0x01,0xaa,0xbb,0xcc,0x01,0xf5,0x00,
+        0x21,0x02,0x00,0x00,0x01,0x79,0x00,0x05,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0xf5,0x00]
+       
+    client = openBBRClient.openBBRClient()
+    client.newMAC(msgToGenerate[66:72])
+    client.newLinkLocal(msgToGenerate[8:24])
+  
+    dst         = msgToGenerate[24:40]
+    tgt         = msgToGenerate[48:64]
+    tid         = msgToGenerate[77]
+    lifetimemn  = 256 * msgToGenerate[78]
+    lifetimemn += msgToGenerate[79]
+    lifetimes   = 60 * lifetimemn
+    uid         = msgToGenerate[80:88]
+  
+    msg=client.createIPv6NeighborSolicitation(dst, tgt, uid, tid, lifetimes)
+  
+    if msgToGenerate == msg:
+        print "\nSuccess!\n"
+        return 0
+    else: 
+        print "\nKO :(\n"
+        print "", msgToGenerate , "of length %d 0x%X" % (len(msgToGenerate),len(msgToGenerate))
+        print "generated"
+        print "", msg , "of length %d 0x%X" % (len(msg),len(msg))
+        return 1
+  
 
-#============================ threads =========================================
-
-class ReadThread(eventBusClient.eventBusClient):
-    '''
-    \brief Thread which continously reads input from a TUN interface.
-    
-    If that input is an IPv4 or IPv6 echo request (a "ping" command) issued to
-    any IP address in the virtual network behind the TUN interface, this thread
-    answers with the appropriate echo reply.
-    '''
-    
-    def __init__(self):
-        
-        # store params
-        
-        # initialize parent class
-        eventBusClient.eventBusClient.__init__(
-            self,
-            name                  = 'OpenTun',
-            registrations         = [
-                {
-                    'sender'   : self.WILDCARD,
-                    'signal'   : 'v6ToMesh',
-                    'callback' : self._v6ToMesh_notif
-                }
-            ]
-        )
-    
-    #======================== public ==========================================
-    
-    #======================== private =========================================
-    
-    def _v6ToMesh_notif(self,sender,signal,data):
-        
-        p = data
-        
-        assert (p[0]&0xf0)==0x60
-        
-        if p[6]==0x3a:
-            # ICMPv6
-            
-            if p[40]==0x80:
-                # IPv6 echo request
-                
-                # print
-                print 'Received IPv6 echo request'
-                
-                # create echo reply
-                echoReply = self._createIpv6EchoReply(p)
-                
-                # send over interface
-                self.dispatch(
-                    signal    = 'v6ToInternet',
-                    data      = echoReply
-                )
-                
-                # print
-                print 'Transmitted IPv6 echo reply'
-            
-            elif p[40]==0x81:
-                
-                # print
-                print 'Received IPv6 echo reply'
-    
-    def _createIpv6EchoReply(self,echoRequest):
-        
-        # invert addresses, change "echo request" type to "echo reply"
-        echoReply       = echoRequest[:8]    + \
-                          echoRequest[24:40] + \
-                          echoRequest[8:24]  + \
-                          [129]              + \
-                          echoRequest[41:]
-        
-        # recalculate checksum
-        pseudo          = []
-        pseudo         += echoRequest[24:40]               # source address
-        pseudo         += echoRequest[8:24]                # destination address
-        pseudo         += [0x00]*3+[len(echoRequest[40:])] # upper-layer packet length
-        pseudo         += [0x00]*3                         # zero
-        pseudo         += [58]                             # next header
-        pseudo         += echoRequest[40:]                 # ICMPv6 header+payload
-        
-        pseudo[40]      = 129                              # ICMPv6 type = echo reply
-        pseudo[42]      = 0x00                             # reset CRC for calculation
-        pseudo[43]      = 0x00                             # reset CRC for calculation
-        
-        crc             = checksum(pseudo)
-        
-        echoReply[42]   = (crc&0x00ff)>>0
-        echoReply[43]   = (crc&0xff00)>>8
-        
-        return echoReply
-
-class WriteThread(threading.Thread):
-    '''
-    \brief Thread with periodically sends IPv6 echo requests.
-    '''
-    
-    SLEEP_PERIOD   = 1
-    
-    def __init__(self,dispatch):
-    
-        # store params
-        self.dispatch = dispatch
-        
-        # local variables
-        
-        # initialize parent
-        threading.Thread.__init__(self)
-        
-        # give this thread a name
-        self.name                 = 'writeThread'
-        
-        # start myself
-        self.start()
-    
-    def run(self):
-        try:
-            while True:
-                
-                # sleep a bit
-                time.sleep(self.SLEEP_PERIOD)
-                
-                # create an echo request
-                echoRequest = self._createIPv6echoRequest()
-                
-                #
-                
-                # transmit
-                self.dispatch(
-                    signal    = 'v6ToInternet',
-                    data      = echoRequest
-                )
-        except Exception as err:
-            errMsg=u.formatCrashMessage(self.name,err)
-            print errMsg
-            log.critical(errMsg)
-            sys.exit(1)
-        
-    #======================== public ==========================================
-    
-    #======================== private =========================================
-    
-    def _createIPv6echoRequest(self):
-        '''
-        \brief Create an IPv6 echo request.
-        '''
-        
-        echoRequest  = []
-        
-        # IPv6 header
-        echoRequest    += [0x60,0x00,0x00,0x00]       # ver, TF
-        echoRequest    += [0x00, 40]                  # length
-        echoRequest    += [58]                        # Next header (58==ICMPv6)
-        echoRequest    += [128]                       # HLIM
-        echoRequest    += [0xbb, 0xbb, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x05,]   # source
-        echoRequest    += [0xbb, 0xbb, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x00,
-                           0x00, 0x00, 0x00, 0x01,]   # destination
-        
-        # ICMPv6 header
-        echoRequest    += [128]                       # type (128==echo request)
-        echoRequest    += [0]                         # code
-        echoRequest    += [0x00,0x00]                 # Checksum (to be filled out later)
-        echoRequest    += [0x00,0x04]                 # Identifier
-        echoRequest    += [0x00,0x12]                 # Sequence
-        
-        # ICMPv6 payload
-        echoRequest    += [ord('a')+b for b in range(32)]
-        
-        # calculate ICMPv6 checksum
-        pseudo  = []
-        pseudo += echoRequest[24:40]                  # source address
-        pseudo += echoRequest[8:24]                   # destination address
-        pseudo += [0x00]*3+[len(echoRequest[40:])]    # upper-layer packet length
-        pseudo += [0x00]*3                            # zero
-        pseudo += [58]                                # next header
-        pseudo += echoRequest[40:]                    # ICMPv6 header+payload
-        
-        crc     = checksum(pseudo)
-        
-        echoRequest[42]   = (crc&0x00ff)>>0
-        echoRequest[43]   = (crc&0xff00)>>8
-        
-        return echoRequest
-    
 #============================ main ============================================
 
 def main():
-    
-    #=== create eventBus client elements
-    
-    tunIf          = openTun.create()
-    readThread     = ReadThread()
-    writeThread    = WriteThread(readThread.dispatch)
-    
-    #=== wait for Enter to stop
-    
-    raw_input("Press enter to stop...\n")
-    
-    #=== stop eventBus client elements
-    
-    '''
-    readThread.close()
-    writeThread.close()
-    tunIf.close()
-    '''
-
+   print "->Test gen NS ARO"
+   rc=testGenNSARO()
+   
 if __name__ == '__main__':
     main()
