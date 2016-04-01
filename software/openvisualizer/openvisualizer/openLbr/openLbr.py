@@ -135,8 +135,8 @@ class OpenLbr(eventBusClient.eventBusClient):
             name             = 'OpenLBR',
             registrations =  [
                 {
-                    'sender'   : self.WILDCARD, #signal from internet to the mesh network
-                    'signal'   : 'v6ToMesh',
+                    'sender'   : self.WILDCARD, 
+                    'signal'   : 'v6ToMesh', #signal from internet to the mesh network
                     'callback' : self._v6ToMesh_notif
                 },
                 {
@@ -174,7 +174,10 @@ class OpenLbr(eventBusClient.eventBusClient):
         
         This function dispatches the 6LoWPAN packet with signal 'bytesToMesh'.
         '''
-        
+
+        #print sender
+        #print '_v6ToMesh : '+'-'.join('0x%02x'%b for b in data)
+
         try:
             
             ipv6_bytes       = data
@@ -200,9 +203,11 @@ class OpenLbr(eventBusClient.eventBusClient):
                 dst_addr=lowpan['dst_addr']
             else:
                 log.warning('unsupported address format {0}'.format(lowpan['dst_addr']))
-                    
+
             lowpan['route'] = self._getSourceRoute(dst_addr)
-            
+
+            # print lowpan['route']
+
             if len(lowpan['route'])<2:
                 # no source route could be found
                 log.warning('no source route to {0}'.format(lowpan['dst_addr']))
@@ -303,7 +308,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                     newUdp = []
                     newUdp += oldUdp[1:3] # Source Port
                     newUdp += oldUdp[3:5] # Destination Port
-                    length = 8+len(pkt[5:])
+                    length = 8+len(ipv6dic[5:])
                     newUdp += [(length & 0xFF00) >> 8] # Length
                     newUdp += [(length & 0x00FF) >> 0]
                     idxCS = len(newUdp) # remember index of checksum
@@ -453,7 +458,7 @@ class OpenLbr(eventBusClient.eventBusClient):
 
         returnVal += [self.PAGE_ONE_DISPATCH]
 
-        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]:
+        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]: # prefix bb bb 00 00 00 00 00 00
             compressReference = [187, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         else:
             compressReference = lowpan['src_addr']
@@ -587,7 +592,7 @@ class OpenLbr(eventBusClient.eventBusClient):
         if   len(lowpan['src_addr'])==128/8:
             sam              = self.IPHC_SAM_128B
         elif len(lowpan['src_addr'])==64/8:
-            sam              = IPHC_SAM_64B
+            sam              = self.IPHC_SAM_64B
         elif len(lowpan['src_addr'])==16/8:
             sam              = self.IPHC_SAM_16B
         elif len(lowpan['src_addr'])==0:

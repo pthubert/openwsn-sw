@@ -43,9 +43,6 @@ from openvisualizer.SimEngine     import SimEngine
 from openvisualizer.BspEmulator   import VcdLogger
 from openvisualizer import ovVersion
 
-
-from pydispatch import dispatcher
-
 # add default parameters to all bottle templates
 view = functools.partial(view, ovVersion='.'.join(list([str(v) for v in ovVersion.VERSION])))
 

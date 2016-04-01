@@ -9,62 +9,17 @@ log = logging.getLogger('openBBRClient')
 log.setLevel(logging.ERROR)
 log.addHandler(logging.NullHandler())
 
-import copy
-import socket
 import threading
-import traceback
-import sys
-import openvisualizer_utils as u
+import time
 
-from pydispatch import dispatcher
-from eventBus import eventBusClient
+from pydispatch                 import dispatcher
+from openvisualizer.eventBus    import eventBusClient
+import openPcap
 
-def constant(f):
-    def fset(self, value):
-        raise TypeError
-    def fget(self):
-        return f()
-    return property(fget, fset)
-    
-class IANA_CONSTANTS(object):
-    '''
-    \brief Implements IANA constants
-    # http://www.iana.org/assignments/protocol-numbers/protocol-numbers.xml 
-    ''' 
-    @constant
-    def ICMPv6():
-        return 58
+import openvisualizer.openvisualizer_utils as u
+import openvisualizer.iana as IANA_CONSTANTS
 
-    class IPv6_ND(object):
-    
-        @constant
-        def RS():
-            return 133
-            
-        @constant
-        def RA():
-            return 134
-            
-        @constant
-        def NS():
-            return 135
-            
-        @constant
-        def NA():
-            return 136
-            
-        @constant
-        def SLLAO():
-            return 1
-            
-        @constant
-        def TLLAO():
-            return 2
-            
-        @constant
-        def ARO():
-            return 33
-    
+  
 def carry_around_add(a, b):
     '''
     \brief Helper function for checksum calculation.
@@ -85,53 +40,50 @@ def checksum(byteList):
         w = byteList[i] + (byteList[i+1] << 8)
         s = carry_around_add(s, w)
     return ~s & 0xffff
-"""
-    This is the backbone Router client task
-    It interfaces with the ethernet abstraction to get the MAC address and the
-    IPv6 linklocal address on that port, and uses them to build NS and RS and
-    send them over the ethernet.
-    It listens to messages coming from the ethernet and is interested in RA to
-    learn the prefix and NA to confirm that NS where processed adequately
-    finally, it listens to messages from 6LBR (tbd) and RPL root (new message
-    for this project) to learn the registration status. It is expected that the
-    RPL root sends
-"""   
-class openBBRClient(threading.Thread):
+ 
 
-    
+class openBBRClient(eventBusClient.eventBusClient):
+    """
+        This is the backbone Router client task
+        It interfaces with the ethernet abstraction to get the MAC address and the
+        IPv6 linklocal address on that port, and uses them to build NS and RS and
+        send them over the ethernet.
+        It listens to messages coming from the ethernet and is interested in RA to
+        learn the prefix and NA to confirm that NS where processed adequately
+        finally, it listens to messages from 6LBR (tbd) and RPL root (new message
+        for this project) to learn the registration status. It is expected that the
+        RPL root sends
+    """ 
+    ARO_LIFETIME   = 300  # in sec
+
     def __init__(self):
     
-        # local variables
-        self.statsLock            = threading.Lock()
-        self.stats                = {}
-        
-        
-        # reset the statistics
-        self._resetStats()
-        
-        # initialize parent class
-        threading.Thread.__init__(self)
-        
-        # give this thread a name
-        self.name            = 'openBBRClient'
-            
-    def __init__real(self):
-    
-        # store params
-        
         # log
         log.info("creating instance")
+
+
+        # store params
+
+        # initialize parent class        
+        eventBusClient.eventBusClient.__init__(
+            self,
+            name          = 'openBBRClient',
+            registrations = [
+                {
+                    'sender'        : self.WILDCARD,
+                    'signal'        : 'registrationEvent',
+                    'callback'      : self._registrationEventNotif
+                },
+            ]
+        )
         
         # local variables
-        self.statsLock            = threading.Lock()
-        self.stats                = {}
-        self.connectSem           = threading.Lock()
-        self.eventBusClient       = eventBusClient.eventBusClient(
-            name          = 'openBBRClient',
-            signal        = 'registrationEvent',
-            sender        = dispatcher.Any,
-            notifCallback = self._registrationEventNotif
-        )
+        self.statsLock          = threading.Lock()
+        self.stats              = {}
+        self.connectSem         = threading.Lock()
+        self.adapterMac         = u.getHWaddr('eth0')
+
+        self.openPcap         = openPcap.openPcap(self.adapterMac)
         
         # reset the statistics
         self._resetStats()
@@ -139,11 +91,6 @@ class openBBRClient(threading.Thread):
         # acquire the connectSem, so the thread doesn't start listening
         self.connectSem.acquire()
         
-        # initialize parent class
-        threading.Thread.__init__(self)
-        
-        # give this thread a name
-        self.name            = 'openBBRClient'
     
                     
             
@@ -194,18 +141,41 @@ class openBBRClient(threading.Thread):
         This function dispatches the 6LoWPAN ND packet with signal
         'bytesToMesh'.
         '''
-        
+
+        #TODO: get dst from RA and save globally or interface_manager
+        prefix = data[:8]
+        src = prefix + [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
+        mac = self.adapterMac
+        dst = [0xfe, 0x80] + [0x00]*6 + [0xfa, 0x72, 0xea, 0xff, 0xfe, 0x83, 0xad, 0xbc]
+        tgt = data
+        uid = data[8:]
+        tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
+        lifetime = self.ARO_LIFETIME
+
         try:
             
-            # build NS ARO based on lifetime, uniqueID and Seq counter
-            ns = self.buildGenericNS(lifetime, uid, seq)
+            ## build NS ARO based on lifetime, uniqueID and Seq counter
+            #ns = self.buildGenericNS(lifetime, uid, seq)
             
-            # dispatch
+            ## dispatch
+            #self.dispatch(
+            #    signal       = 'bytesToMesh',
+            #    data         = (ns,ns_bytes),
+            #)
+
+            ns = self._createIPv6NeighborSolicitation(mac,
+                                                      src,
+                                                      dst,
+                                                      tgt,
+                                                      uid,
+                                                      tid,
+                                                      lifetime)
+
             self.dispatch(
-                signal       = 'bytesToMesh',
-                data         = (ns,ns_bytes),
+                signal      = 'NStoBBR',
+                data        = ns,
             )
-            
+
         except (ValueError,NotImplementedError) as err:
             log.error(err)
             pass
@@ -299,9 +269,9 @@ class openBBRClient(threading.Thread):
         
         :returns: An IPV6 packet with an SLLAO and an ARO option
         '''
-        
+
         # IANA assigned values stored in a constant class
-        IANA = IANA_CONSTANTS()
+        IANA = IANA_CONSTANTS.IANA_CONSTANTS()
         IPv6_ND = IANA.IPv6_ND()
                 
         # Init a list for the bytestring
@@ -373,7 +343,7 @@ class openBBRClient(threading.Thread):
         pseudo += [58]                              # next header
         pseudo += NeighborSolicitation[40:]         # ICMPv6 header+payload
                 
-        crc     = checksum(pseudo)                  #  comute checksum
+        crc     = checksum(pseudo)                  #  compute checksum
         NeighborSolicitation[42]   = (crc&0x00ff)>>0
         NeighborSolicitation[43]   = (crc&0xff00)>>8
         

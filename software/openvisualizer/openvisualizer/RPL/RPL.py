@@ -274,6 +274,12 @@ class RPL(eventBusClient.eventBusClient):
             signal          = 'updateParents',
             data            =  (tuple(source),parents)  
         )
+
+        # trigger NS
+        self.dispatch(
+            signal          = 'registrationEvent',
+            data            =  tup[0]  # dispatch src
+        )
         
         #with self.dataLock:
         #    self.parents.update({tuple(source):parents})

@@ -71,7 +71,7 @@ class MoteStateCli(OpenCli):
                 print ms.getStateElem(params[0])
             except ValueError as err:
                 print err
-				
+
     def _handlerRes(self,params):
         for ms in self.moteState_handlers:
             try:

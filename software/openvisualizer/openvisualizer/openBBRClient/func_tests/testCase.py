@@ -22,10 +22,10 @@ if __name__=='__main__':
 import threading
 import time
 import traceback
-import openvisualizer_utils as u
+import openvisualizer.openvisualizer_utils as u
 
 
-from eventBus import eventBusClient
+from openvisualizer.eventBus import eventBusClient
 from openBBRClient import openBBRClient
 
 #============================ defines =========================================

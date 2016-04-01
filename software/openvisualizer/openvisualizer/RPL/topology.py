@@ -18,7 +18,6 @@ log.addHandler(logging.NullHandler())
 
 import threading
 
-import openvisualizer.openvisualizer_utils as u
 from openvisualizer.eventBus import eventBusClient
 
 class topology(eventBusClient.eventBusClient):
@@ -76,7 +75,7 @@ class topology(eventBusClient.eventBusClient):
         with self.dataLock:
             #data[0] == source address, data[1] == list of parents
             self.parents.update({data[0]:data[1]})
-    
+            # update parents information with parents collected -- calls topology module.
     #======================== private =========================================
     
     #======================== helpers =========================================

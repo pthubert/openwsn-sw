@@ -16,6 +16,7 @@ import struct
 import traceback
 
 import openvisualizer.openvisualizer_utils as u
+import openvisualizer.iana as IANA_CONSTANTS
 import openTun
 from   fcntl     import ioctl
 from   openvisualizer.eventBus  import eventBusClient
@@ -132,7 +133,14 @@ class OpenTunLinux(openTun.OpenTun):
         This function forwards the data to the the TUN interface.
         Read from tun interface and forward to 6lowPAN
         '''
-        
+
+        #print sender
+        #print '_v6ToInternet : '+'-'.join('0x%02x'%b for b in data)
+
+        # IANA assigned values stored in a constant class
+        IANA = IANA_CONSTANTS.IANA_CONSTANTS()
+        ICMPv6 = IANA.ICMPv6()
+
         # abort if not tun interface
         if not self.tunIf:
             return
@@ -143,15 +151,19 @@ class OpenTunLinux(openTun.OpenTun):
         # convert data to string
         data  = ''.join([chr(b) for b in data])
         
-        try:
-            # write over tuntap interface
-            os.write(self.tunIf, data)
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug("data dispatched to tun correctly {0}, {1}".format(signal,sender))
-        except Exception as err:
-            errMsg=u.formatCriticalMessage(err)
-            print errMsg
-            log.critical(errMsg)
+        # drop icmpv6 message from outer network
+        if data[7] == ICMPv6:       # next_header == icmpv6
+            return 
+        else:
+            try:
+                # write over tuntap interface
+                os.write(self.tunIf, data)
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug("data dispatched to tun correctly {0}, {1}".format(signal,sender))
+            except Exception as err:
+                errMsg=u.formatCriticalMessage(err)
+                print errMsg
+                log.critical(errMsg)
      
     def _createTunIf(self):
         '''
