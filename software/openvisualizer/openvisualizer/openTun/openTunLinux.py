@@ -131,11 +131,8 @@ class OpenTunLinux(openTun.OpenTun):
         Called when receiving data from the EventBus.
         
         This function forwards the data to the the TUN interface.
-        Read from tun interface and forward to 6lowPAN
+        Read from 6lowPAN and forward to tun interface
         '''
-
-        #print sender
-        #print '_v6ToInternet : '+'-'.join('0x%02x'%b for b in data)
 
         # IANA assigned values stored in a constant class
         IANA = IANA_CONSTANTS.IANA_CONSTANTS()

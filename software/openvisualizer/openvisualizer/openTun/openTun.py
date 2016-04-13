@@ -121,8 +121,8 @@ class OpenTun(eventBusClient.eventBusClient):
         '''
         Called when receiving data from the EventBus.
         
-        This function forwards the data to the the TUN interface.
-        Read from tun interface and forward to 6lowPAN
+        This function forwards the data to the TUN interface.
+        Read from 6lowPAN and forward to tun interface
         '''
         raise NotImplementedError('subclass must implement')
     
@@ -134,7 +134,7 @@ class OpenTun(eventBusClient.eventBusClient):
         Called when receiving data from the TUN interface.
         
         This function forwards the data to the the EventBus.
-        Read from 6lowPAN and forward to tun interface
+        Read from tun interface and forward to 6lowPAN
         '''
         # dispatch to EventBus
         self.dispatch(

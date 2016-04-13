@@ -20,6 +20,7 @@ from openvisualizer.moteConnector import moteConnector
 from openvisualizer.moteState     import moteState
 from openvisualizer.RPL           import RPL
 from openvisualizer.openLbr       import openLbr
+from openvisualizer.openPcap      import openPcap
 from openvisualizer.openTun       import openTun
 from openvisualizer.RPL           import UDPLatency
 from openvisualizer.RPL           import topology
@@ -54,7 +55,8 @@ class OpenVisualizerApp(object):
         self.rpl                  = RPL.RPL()
         self.topology             = topology.topology()
         self.udpLatency           = UDPLatency.UDPLatency()
-
+        
+        self.openPcap             = openPcap.create()
         self.openBBRClient        = openBBRClient.openBBRClient()
 
         self.DAGrootList          = []

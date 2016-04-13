@@ -14,7 +14,6 @@ import time
 
 from pydispatch                 import dispatcher
 from openvisualizer.eventBus    import eventBusClient
-import openPcap
 
 import openvisualizer.openvisualizer_utils as u
 import openvisualizer.iana as IANA_CONSTANTS
@@ -81,22 +80,13 @@ class openBBRClient(eventBusClient.eventBusClient):
         self.statsLock          = threading.Lock()
         self.stats              = {}
         self.connectSem         = threading.Lock()
-        (
-        self.adapterMac, 
-        self.adapterName
-        )                       = openPcap.getHWparam()
-
-        self.openPcap           = openPcap.openPcap(self.adapterMac, self.adapterName)
         
         # reset the statistics
         self._resetStats()
         
         # acquire the connectSem, so the thread doesn't start listening
         self.connectSem.acquire()
-        
-    
-                    
-            
+           
             
     #======================== public ==========================================
     """
