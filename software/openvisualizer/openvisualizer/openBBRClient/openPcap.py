@@ -10,10 +10,103 @@ log.setLevel(logging.ERROR)
 log.addHandler(logging.NullHandler())
 
 import threading
+import sys
+import re
+import netifaces
+import pcapy
 import pcap
 
+import ctypes
+import _winreg as reg
+import win32file
+import win32event
+import pywintypes
+
 from pydispatch import dispatcher
+import openvisualizer.openvisualizer_utils as u
+
+
+
+def getHWparam(interface=None):
+    """
+    returns the hw information Name and MAC of the given interface, e.g. 'eth0'
+
+    if no interface is given, the function returns the first match for ethx (linux)
+    and  pci\ven_8086 (windows, onboard ethernet)
+    """
+    adapterMac = [0x00]*8
     
+    if interface is None:
+        adapters = netifaces.interfaces()
+
+        if sys.platform.startswith('win32'):
+            ADAPTER_KEY = r'SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}'
+            win = ur'pci\ven_8086'  #to be checked with other systems
+            with reg.OpenKey(reg.HKEY_LOCAL_MACHINE, ADAPTER_KEY) as devices:
+                try:
+                    for i in xrange(1000):
+                        key_name = reg.EnumKey(devices, i)
+                        with reg.OpenKey(devices, key_name) as adapter:
+                            try:
+                                component_id = reg.QueryValueEx(adapter, 'ComponentId')[0]
+                                if win in component_id:
+                                    hwkey = reg.QueryValueEx(adapter, 'NetCfgInstanceId')[0]
+                                    matches = [adp for adp in adapters if hwkey.encode('utf8') == adp] #get hwkey of matching interfaces
+                                    if matches is not None:    
+                                        break
+                            except WindowsError, err:
+                                print err
+                                pass
+                except WindowsError, err:
+                    print err
+                    pass
+
+            #retrieve mac addr
+            adapterMac = netifaces.ifaddresses(matches[0])[netifaces.AF_LINK][0]['addr']
+            #retrieve adapter name
+            for iface in pcapy.findalldevs():
+                if hwkey.encode('utf8') in iface:
+                    adapterName = iface 
+
+        elif sys.platform.startswith('linux'):
+            eth = re.compile('eth')
+            matches = [adp for adp in adapters if re.match(eth, adp)]
+            adapterMac = matches[0]
+
+        else:
+            raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
+
+    #interface name is given
+    else:
+        if sys.platform.startswith('win32'):
+
+            hwkey = '{' + interface.partition('{')[-1].rpartition('}')[0] + '}'
+            #retrieve mac addr
+            adapterMac = netifaces.ifaddresses(hwkey)[netifaces.AF_LINK][0]['addr']
+            #retrieve adapter name
+            for iface in pcapy.findalldevs():
+                if hwkey in iface:
+                    adapterName = iface 
+
+        elif sys.platform.startswith('linux'):
+            try:
+                adapterMac = open('/sys/class/net/' + interface + '/address').readline()
+
+            except Exception as err:
+                print err
+                pass
+
+        else:
+            raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
+    
+        
+    #format mac addr
+    adapterMac = adapterMac.replace(':','').strip()
+    adapterMac = u.hex2buf(adapterMac)
+
+    return adapterMac, adapterName
+
+
 class openPcap(threading.Thread):
     """description of class"""
 
@@ -23,7 +116,7 @@ class openPcap(threading.Thread):
     LEN_HDR_ETH         = 6+6+2
     LEN_HDR_IPv6        = 40
 
-    def __init__(self,adapterMac):
+    def __init__(self,adapterMac,adapterName):
         
         #===== initialize
         
@@ -42,17 +135,32 @@ class openPcap(threading.Thread):
         threading.Thread.__init__(self)
 
         # name the thread
-        self.name            = 'openPcap'
+        self.name           = 'openPcap'
         
-        self.adapterMac = adapterMac
-        #===== open PCAP adapter
-        self.adapter    = pcap.pcap('eth0')
-        
-        #===== apply PCAP filter 
-        self.adapter.setfilter('ip6')
-        
-        #===== connect to dispatcher
+        self.adapterMac     = adapterMac
+        self.adapterName    = adapterName
 
+        if sys.platform.startswith('win32'):
+            #===== open PCAP adapter
+            self.adapter         = pcapy.open_live(
+                                        self.adapterName,     # device
+                                        65536,                # snaplen
+                                        0,                    # promisc
+                                        10,                   # to_ms
+                                        )
+        
+            #===== apply PCAP filter 
+            self.adapter.setfilter('ip6')
+
+        elif sys.platform.startswith('linux'):
+            #===== open PCAP adapter
+            self.adapter    = pcap.pcap('eth0')
+        
+            #===== apply PCAP filter 
+            self.adapter.setfilter('ip6')
+
+       
+        #===== connect to dispatcher
         dispatcher.connect(
             self._send,
             signal = 'NStoBBR',
@@ -72,9 +180,14 @@ class openPcap(threading.Thread):
     
         while self.goOn:    
             try:
-            
-                for ts,pk in self.adapter:
-                    self._rxpacket_handler(pk)
+                if sys.platform.startswith('win32'):
+                    hdr, pk = self.adapter.next()
+                    while hdr is not None:
+                        self._rxpacket_handler(pk)
+                        hdr, pk = self.adapter.next()
+                elif sys.platform.startswith('linux'):
+                    for ts,pk in self.adapter:
+                        self._rxpacket_handler(pk)
 
         
             except Exception as err:
@@ -102,7 +215,10 @@ class openPcap(threading.Thread):
             self._addToTxBuff(data)
             
             # send
-            self.adapter.inject(self.txBuf,self.txBufFill)
+            if sys.platform.startswith('win32'):
+                self.adapter.sendpacket(self.txBuf)             # uses winpcap with pcapy 
+            elif sys.platform.startswith('linux'):
+                self.adapter.inject(self.txBuf,self.txBufFill)  # works with linux pypcap
             
     
     def close(self):

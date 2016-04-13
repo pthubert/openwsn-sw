@@ -81,9 +81,12 @@ class openBBRClient(eventBusClient.eventBusClient):
         self.statsLock          = threading.Lock()
         self.stats              = {}
         self.connectSem         = threading.Lock()
-        self.adapterMac         = u.getHWaddr('eth0')
+        (
+        self.adapterMac, 
+        self.adapterName
+        )                       = openPcap.getHWparam()
 
-        self.openPcap         = openPcap.openPcap(self.adapterMac)
+        self.openPcap           = openPcap.openPcap(self.adapterMac, self.adapterName)
         
         # reset the statistics
         self._resetStats()

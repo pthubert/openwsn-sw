@@ -458,8 +458,8 @@ class OpenLbr(eventBusClient.eventBusClient):
 
         returnVal += [self.PAGE_ONE_DISPATCH]
 
-        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]: # prefix bb bb 00 00 00 00 00 00
-            compressReference = [187, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+        if lowpan['src_addr'][:8] != [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0]: # prefix bb bb 00 00 00 00 00 00
+            compressReference = [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         else:
             compressReference = lowpan['src_addr']
 
@@ -500,7 +500,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                             returnVal += hopList
                             size = 1
                             sizeUnitType = self.TYPE_6LoRH_RH3_1
-                            hopList += hop[-2:]
+                            hopList = hop[-2:]
                             compressReference = hop
                         else:
                             hopList += hop[-2:]
@@ -516,7 +516,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                             returnVal += hopList
                             size = 1
                             sizeUnitType = self.TYPE_6LoRH_RH3_2
-                            hopList += hop[-4:]
+                            hopList = hop[-4:]
                             compressReference = hop
                         else:
                             hopList += hop[-4:]
@@ -547,7 +547,7 @@ class OpenLbr(eventBusClient.eventBusClient):
 
         # ===================== 2. IPinIP 6LoRH ===============================
 
-        if lowpan['src_addr'][:8] != [187, 187, 0, 0, 0, 0, 0, 0]:
+        if lowpan['src_addr'][:8] != [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0]:
             # add RPI 
             # TBD
             flag = self.O_FLAG | self.I_FLAG | self.K_FLAG
@@ -558,7 +558,7 @@ class OpenLbr(eventBusClient.eventBusClient):
             returnVal += [self.ELECTIVE_6LoRH | l,self.TYPE_6LoRH_IP_IN_IP]
             returnVal += lowpan['hlim']
 
-            compressReference = [187, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+            compressReference = [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
         else:
             compressReference = lowpan['src_addr']
  
@@ -673,7 +673,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                     pkt_ipv6['hop_limit'] = pkt_lowpan[ptr+2]
                     ptr += 3
                     if length == 1:
-                        pkt_ipv6['src_addr'] = [0xbb,0xbb,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01]
+                        pkt_ipv6['src_addr'] = [0x20, 0x02, 0x0d, 0xb9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01]
                     elif length == 9:
                         pkt_ipv6['src_addr'] = self.networkPrefix + pkt_lowpan[ptr:ptr+8]
                         ptr += 8
