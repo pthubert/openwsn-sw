@@ -167,7 +167,6 @@ class openBBRClient(eventBusClient.eventBusClient):
                                                       tid,
                                                       self.ARO_LIFETIME # lifetime
                                                       )
-
             self.dispatch(
                 signal      = 'v6ToInternet',
                 data        = ns,

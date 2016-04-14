@@ -42,7 +42,8 @@ class OpenVisualizerApp(object):
         # create singleton which hold global configurations
         s_openConfig              = openConfig.openConfig()
         # load configuration from file
-        s_openConfig.readFile('openvisualizer/bin/openVisualizerApp/openVisualizerApp.config')
+        
+        s_openConfig.readFile('bin/openVisualizerApp/openVisualizerApp.config')
 
         # store params
         self.confdir              = confdir
