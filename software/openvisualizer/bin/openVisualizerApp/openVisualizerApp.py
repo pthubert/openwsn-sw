@@ -14,6 +14,7 @@ import logging
 import json
 log = logging.getLogger('openVisualizerApp')
 
+from openvisualizer.openConfig    import openConfig
 from openvisualizer.eventBus      import eventBusMonitor
 from openvisualizer.moteProbe     import moteProbe
 from openvisualizer.moteConnector import moteConnector
@@ -38,6 +39,11 @@ class OpenVisualizerApp(object):
     
     def __init__(self,confdir,datadir,logdir,simulatorMode,numMotes,trace,debug,simTopology,iotlabmotes, pathTopo):
         
+        # create singleton which hold global configurations
+        s_openConfig              = openConfig.openConfig()
+        # load configuration from file
+        s_openConfig.readFile('openVisualizerApp.config')
+
         # store params
         self.confdir              = confdir
         self.datadir              = datadir

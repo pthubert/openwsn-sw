@@ -15,7 +15,6 @@ import netifaces
 import pcapy
 import pcap
 
-import _winreg as reg
 import win32file
 import win32event
 import pywintypes

@@ -4,6 +4,7 @@
 #  
 # Released under the BSD 3-Clause license as published at the link below.
 # https://openwsn.atlassian.net/wiki/display/OW/License
+
 import logging
 log = logging.getLogger('openPcap')
 log.setLevel(logging.ERROR)
@@ -13,13 +14,7 @@ import sys
 import re
 import netifaces
 import pcapy
-import pcap
-
-import ctypes
 import _winreg as reg
-import win32file
-import win32event
-import pywintypes
 
 from pydispatch                 import dispatcher
 from openvisualizer.eventBus    import eventBusClient
@@ -67,11 +62,11 @@ def getHWparam(interface=None):
             #retrieve adapter name
             for iface in pcapy.findalldevs():
                 if hwkey.encode('utf8') in iface:
-                    adapterName = iface 
+                    adapterName = iface
+                    break
 
         elif sys.platform.startswith('linux'):
-            eth = re.compile('eth')
-            matches = [adp for adp in adapters if re.match(eth, adp)]
+            matches = [adp for adp in adapters if re.match('eth', adp)]
             adapterMac = matches[0]
 
         else:
@@ -150,13 +145,13 @@ class OpenPcap(eventBusClient.eventBusClient):
             registrations           = [
                 {
                     'sender'        : self.WILDCARD,
-                    'signal'        : 'NStoBBR',
-                    'callback'      : self._v6ToInternet_notif,
+                    'signal'        : 'v6ToInternet',
+                    'callback'      : self._v6ToInternet_notif
                 },
                 {
                     'sender'        : self.WILDCARD,
-                    'signal'        : 'v6ToInternet',
-                    'callback'      : self._v6ToInternet_notif
+                    'signal'        : 'getAdapterMac',
+                    'callback'      : self._getAdapterMac_notif
                 },
             ]
         )
@@ -183,6 +178,9 @@ class OpenPcap(eventBusClient.eventBusClient):
             self.PcapReadThread.close()
     
     #======================== private =========================================
+    def _getAdapterMac_notif(self,sender,signal,data):
+        return self.adapterMac
+
     def _v6ToInternet_notif(self,sender,signal,data):
         '''
         Called when receiving data from the EventBus.
