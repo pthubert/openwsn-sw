@@ -65,21 +65,12 @@ class openConfig(object):
                     m = re.search('(\S+)\s*=\s*(\S+)',line)
                     if m:
                         name   = m.group(1)                     # the first parenthesized subgroup.
-                        values = m.group(2).split(',')          # the second parenthesized subgroup.
-                        values = [v.strip() for v in values]    # remove whitespaces
+                        values = m.group(2)                     # the second parenthesized subgroup.
                         
-                        for i in range(len(values)):
-                            # int
-                            try:
-                                values[i] = int(values[i])
-                            except:
-                                pass
-                            # float
-                            try:
-                                values[i] = float(values[i])
-                            except:
-                                pass
-                        
+                        if values[0] == ('['):
+                            values = values[1:-1].split(',')
+                            values = [ int(i[2:],16) for i in values ]
+                                                          
                         if len(values)==1:
                             values = values[0]
                         
