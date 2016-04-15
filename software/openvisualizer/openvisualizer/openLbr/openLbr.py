@@ -377,7 +377,7 @@ class OpenLbr(eventBusClient.eventBusClient):
             raise ValueError('Packet too small ({0} bytes) no space for IPv6 header'.format(len(ipv6)))
         
         returnVal                      = {}
-        returnVal['version']           = ipv6[0] >> 4
+        returnVal['version']           = ((ipv6[0] & 0xf0) >> 4)
         if returnVal['version']!=6:
             raise ValueError('Not an IPv6 packet, version=={0}'.format(returnVal['version']))
         

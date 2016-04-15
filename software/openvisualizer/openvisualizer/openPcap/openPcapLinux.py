@@ -117,7 +117,7 @@ class OpenPcapLinux(openPcap.OpenPcap):
         '''                        
 
         #===== open PCAP adapter
-        adapter    = pcap.pcap('eth0')
+        adapter    = pcap.pcap(self.adapterName)
         
         #===== apply PCAP filter 
         adapter.setfilter('ip6')
