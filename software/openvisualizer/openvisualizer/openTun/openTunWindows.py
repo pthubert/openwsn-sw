@@ -155,19 +155,30 @@ class OpenTunWindows(openTun.OpenTun):
         This function forwards the data to the the TUN interface.
         '''
         
-        # convert data to string
-        data  = ''.join([chr(b) for b in data])
-        # write over tuntap interface
-        try:
-            win32file.WriteFile(self.tunIf, data, self.overlappedTx)
-            win32event.WaitForSingleObject(self.overlappedTx.hEvent, win32event.INFINITE)
-            self.overlappedTx.Offset = self.overlappedTx.Offset + len(data)
-            if log.isEnabledFor(logging.DEBUG):
-                log.debug("data dispatched to tun correctly {0}, {1}".format(signal,sender))
-        except Exception as err:
-            errMsg=u.formatCriticalMessage(err)
-            print errMsg
-            log.critical(errMsg)
+        # IANA assigned values stored in a constant class
+        IANA = IANA_CONSTANTS.IANA_CONSTANTS()
+        
+        # abort if not tun interface
+        if not self.tunIf:
+            return
+        # drop icmpv6 message from outer network
+        if data[6] == IANA.ICMPv6:  # next_header == icmpv6
+            return
+         
+        else:
+            # convert data to string
+            data  = ''.join([chr(b) for b in data])
+            # write over tuntap interface
+            try:
+                win32file.WriteFile(self.tunIf, data, self.overlappedTx)
+                win32event.WaitForSingleObject(self.overlappedTx.hEvent, win32event.INFINITE)
+                self.overlappedTx.Offset = self.overlappedTx.Offset + len(data)
+                if log.isEnabledFor(logging.DEBUG):
+                    log.debug("data dispatched to tun correctly {0}, {1}".format(signal,sender))
+            except Exception as err:
+                errMsg=u.formatCriticalMessage(err)
+                print errMsg
+                log.critical(errMsg)
     
     def _createTunIf(self):
         '''
