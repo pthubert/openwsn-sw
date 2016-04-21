@@ -131,30 +131,26 @@ class OpenTunLinux(openTun.OpenTun):
         Called when receiving data from the EventBus.
         
         This function forwards the data to the the TUN interface.
-        Read from tun interface and forward to 6lowPAN
+        Read from 6lowPAN and forward to tun interface
         '''
-
-        #print sender
-        #print '_v6ToInternet : '+'-'.join('0x%02x'%b for b in data)
 
         # IANA assigned values stored in a constant class
         IANA = IANA_CONSTANTS.IANA_CONSTANTS()
-        ICMPv6 = IANA.ICMPv6()
-
+        
         # abort if not tun interface
         if not self.tunIf:
             return
-        
-        # add tun header
-        data  = VIRTUALTUNID + data
-        
-        # convert data to string
-        data  = ''.join([chr(b) for b in data])
-        
         # drop icmpv6 message from outer network
-        if data[7] == ICMPv6:       # next_header == icmpv6
-            return 
+        if data[6] == IANA.ICMPv6:  # next_header == icmpv6
+            return
+         
         else:
+            # add tun header
+            data  = VIRTUALTUNID + data
+        
+            # convert data to string
+            data  = ''.join([chr(b) for b in data])
+
             try:
                 # write over tuntap interface
                 os.write(self.tunIf, data)

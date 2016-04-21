@@ -13,8 +13,8 @@ import threading
 import time
 
 from pydispatch                 import dispatcher
+from openvisualizer.openConfig  import openConfig
 from openvisualizer.eventBus    import eventBusClient
-import openPcap
 
 import openvisualizer.openvisualizer_utils as u
 import openvisualizer.iana as IANA_CONSTANTS
@@ -61,9 +61,6 @@ class openBBRClient(eventBusClient.eventBusClient):
         # log
         log.info("creating instance")
 
-
-        # store params
-
         # initialize parent class        
         eventBusClient.eventBusClient.__init__(
             self,
@@ -76,24 +73,29 @@ class openBBRClient(eventBusClient.eventBusClient):
                 },
             ]
         )
+
+        # store params
+        self.adapterMac     = self._dispatchAndGetResult(
+                                signal       = 'getAdapterMac',
+                                data         = [],
+                              )
+        
+        s_openConfig            = openConfig.openConfig()
+        self.IPV6PREFIX         = s_openConfig.get('OPEN_IPV6PREFIX')
+        self.IPV6HOST           = s_openConfig.get('OPEN_IPV6HOST')
+
         
         # local variables
         self.statsLock          = threading.Lock()
         self.stats              = {}
         self.connectSem         = threading.Lock()
-        self.adapterMac         = u.getHWaddr('eth0')
-
-        self.openPcap         = openPcap.openPcap(self.adapterMac)
         
         # reset the statistics
         self._resetStats()
         
         # acquire the connectSem, so the thread doesn't start listening
         self.connectSem.acquire()
-        
-    
-                    
-            
+           
             
     #======================== public ==========================================
     """
@@ -143,14 +145,8 @@ class openBBRClient(eventBusClient.eventBusClient):
         '''
 
         #TODO: get dst from RA and save globally or interface_manager
-        prefix = data[:8]
-        src = prefix + [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]
-        mac = self.adapterMac
         dst = [0xfe, 0x80] + [0x00]*6 + [0xfa, 0x72, 0xea, 0xff, 0xfe, 0x83, 0xad, 0xbc]
-        tgt = data
-        uid = data[8:]
         tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
-        lifetime = self.ARO_LIFETIME
 
         try:
             
@@ -163,16 +159,16 @@ class openBBRClient(eventBusClient.eventBusClient):
             #    data         = (ns,ns_bytes),
             #)
 
-            ns = self._createIPv6NeighborSolicitation(mac,
-                                                      src,
+            ns = self._createIPv6NeighborSolicitation(self.adapterMac,  # mac
+                                                      self.IPV6PREFIX + self.IPV6HOST,  # src,
                                                       dst,
-                                                      tgt,
-                                                      uid,
+                                                      data,             # tgt
+                                                      data[8:],         # uid
                                                       tid,
-                                                      lifetime)
-
+                                                      self.ARO_LIFETIME # lifetime
+                                                      )
             self.dispatch(
-                signal      = 'NStoBBR',
+                signal      = 'v6ToInternet',
                 data        = ns,
             )
 

@@ -12,12 +12,9 @@ import sys
 import socket
 import time
 
+from openvisualizer.openConfig  import openConfig
+from openvisualizer.eventBus import eventBusClient
 import openvisualizer.openvisualizer_utils as u
-from   openvisualizer.eventBus import eventBusClient
-
-# IPv6 address for TUN interface
-IPV6PREFIX = [0x20,0x02,0x0d,0xb9,0x00,0x00,0x00,0x00]
-IPV6HOST   = [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01]
     
 def create():
     '''
@@ -55,6 +52,11 @@ class OpenTun(eventBusClient.eventBusClient):
         log.info("create instance")
         
         # store params
+        s_openConfig            = openConfig.openConfig()
+
+        self.IPV6PREFIX         = s_openConfig.get('OPEN_IPV6PREFIX')
+        self.IPV6HOST           = s_openConfig.get('OPEN_IPV6HOST')
+         
         
         # register to receive outgoing network packets
         eventBusClient.eventBusClient.__init__(
@@ -86,7 +88,7 @@ class OpenTun(eventBusClient.eventBusClient):
         # announce network prefix
         self.dispatch(
             signal        = 'networkPrefix',
-            data          = IPV6PREFIX
+            data          = self.IPV6PREFIX
         )
     
     #======================== public ==========================================
@@ -106,7 +108,7 @@ class OpenTun(eventBusClient.eventBusClient):
                     sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
                     # Destination must route through the TUN host, but not be the host itself.
                     # OK if host does not really exist.
-                    dst      = IPV6PREFIX + IPV6HOST
+                    dst      = self.IPV6PREFIX + self.IPV6HOST
                     dst[15] += 1
                     # Payload and destination port are arbitrary
                     sock.sendto('stop', (u.formatIPv6Addr(dst),18004))
@@ -121,20 +123,23 @@ class OpenTun(eventBusClient.eventBusClient):
         '''
         Called when receiving data from the EventBus.
         
-        This function forwards the data to the the TUN interface.
-        Read from tun interface and forward to 6lowPAN
+        This function forwards the data to the TUN interface.
+        Read from 6lowPAN and forward to tun interface
         '''
         raise NotImplementedError('subclass must implement')
     
     def _getNetworkPrefix_notif(self,sender,signal,data):
-        return IPV6PREFIX
+
+        s_openConfig            = openConfig.openConfig()
+        self.IPV6PREFIX         = s_openConfig.get('OPEN_IPV6PREFIX')
+        return self.IPV6PREFIX
     
     def _v6ToMesh_notif(self,data):
         '''
         Called when receiving data from the TUN interface.
         
         This function forwards the data to the the EventBus.
-        Read from 6lowPAN and forward to tun interface
+        Read from tun interface and forward to 6lowPAN
         '''
         # dispatch to EventBus
         self.dispatch(

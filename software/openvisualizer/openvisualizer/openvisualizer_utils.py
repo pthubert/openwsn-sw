@@ -74,27 +74,6 @@ def hex2buf(s):
     
     return returnVal
 
-#===== MAC
-
-def getHWaddr(interface):
-    """
-    returns the hardware of the given interface, for instance 'eth0'
-    """
-
-    mac = [0x00]*8
-
-    try:
-        mac = open('/sys/class/net/' + interface + '/address').readline()
-        mac = mac.replace(':','').strip()
-
-        mac = hex2buf(mac)
-
-    except Exception as err:
-        print err
-        pass
-    
-    return mac
-
 #===== CRC
 
 def calculateCRC(payload):  

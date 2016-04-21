@@ -14,12 +14,14 @@ import logging
 import json
 log = logging.getLogger('openVisualizerApp')
 
+from openvisualizer.openConfig    import openConfig
 from openvisualizer.eventBus      import eventBusMonitor
 from openvisualizer.moteProbe     import moteProbe
 from openvisualizer.moteConnector import moteConnector
 from openvisualizer.moteState     import moteState
 from openvisualizer.RPL           import RPL
 from openvisualizer.openLbr       import openLbr
+from openvisualizer.openPcap      import openPcap
 from openvisualizer.openTun       import openTun
 from openvisualizer.RPL           import UDPLatency
 from openvisualizer.RPL           import topology
@@ -37,6 +39,12 @@ class OpenVisualizerApp(object):
     
     def __init__(self,confdir,datadir,logdir,simulatorMode,numMotes,trace,debug,simTopology,iotlabmotes, pathTopo):
         
+        # create singleton which hold global configurations
+        s_openConfig              = openConfig.openConfig()
+        # load configuration from file
+        
+        s_openConfig.readFile('bin/openVisualizerApp/openVisualizerApp.config')
+
         # store params
         self.confdir              = confdir
         self.datadir              = datadir
@@ -54,7 +62,8 @@ class OpenVisualizerApp(object):
         self.rpl                  = RPL.RPL()
         self.topology             = topology.topology()
         self.udpLatency           = UDPLatency.UDPLatency()
-
+        
+        self.openPcap             = openPcap.create()
         self.openBBRClient        = openBBRClient.openBBRClient()
 
         self.DAGrootList          = []
