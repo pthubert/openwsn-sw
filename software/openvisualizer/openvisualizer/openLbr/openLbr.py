@@ -10,6 +10,7 @@ log.addHandler(logging.NullHandler())
 
 from openvisualizer.eventBus import eventBusClient
 import threading
+from openvisualizer.openConfig import openConfig
 import openvisualizer.openvisualizer_utils as u
 
 #============================ parameters ======================================
@@ -125,9 +126,13 @@ class OpenLbr(eventBusClient.eventBusClient):
         log.info("create instance")
         
         # store params
+        s_openConfig            = openConfig.openConfig()
+
         self.stateLock            = threading.Lock()
-        self.networkPrefix        = None
         self.dagRootEui64         = None
+
+        self.networkPrefix        = s_openConfig.get('OPEN_IPV6PREFIX')
+        self.IPV6HOST             = s_openConfig.get('OPEN_IPV6HOST')
          
         # initialize parent class
         eventBusClient.eventBusClient.__init__(
@@ -258,6 +263,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                     log.error("detected possible downstream link on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr'])))
                 if ((ipv6dic['hop_flags'] & self.R_FLAG) == self.R_FLAG):
                     #error -- loop in the route
+                    print ipv6dic
                     log.error("detected possible loop on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr'])))
                 #skip the header and process the rest of the message.
                 ipv6dic['next_header'] = ipv6dic['hop_next_header']
@@ -458,8 +464,8 @@ class OpenLbr(eventBusClient.eventBusClient):
 
         returnVal += [self.PAGE_ONE_DISPATCH]
 
-        if lowpan['src_addr'][:8] != [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0]: # prefix bb bb 00 00 00 00 00 00
-            compressReference = [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+        if lowpan['src_addr'][:8] != self.networkPrefix: # prefix bb bb 00 00 00 00 00 00
+            compressReference = self.networkPrefix + self.IPV6HOST
         else:
             compressReference = lowpan['src_addr']
 
@@ -547,7 +553,7 @@ class OpenLbr(eventBusClient.eventBusClient):
 
         # ===================== 2. IPinIP 6LoRH ===============================
 
-        if lowpan['src_addr'][:8] != [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0]:
+        if lowpan['src_addr'][:8] != self.networkPrefix:
             # add RPI 
             # TBD
             flag = self.O_FLAG | self.I_FLAG | self.K_FLAG
@@ -558,7 +564,7 @@ class OpenLbr(eventBusClient.eventBusClient):
             returnVal += [self.ELECTIVE_6LoRH | l,self.TYPE_6LoRH_IP_IN_IP]
             returnVal += lowpan['hlim']
 
-            compressReference = [0x20, 0x02, 0x0d, 0xb9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+            compressReference = self.networkPrefix + self.IPV6HOST
         else:
             compressReference = lowpan['src_addr']
  
@@ -673,7 +679,7 @@ class OpenLbr(eventBusClient.eventBusClient):
                     pkt_ipv6['hop_limit'] = pkt_lowpan[ptr+2]
                     ptr += 3
                     if length == 1:
-                        pkt_ipv6['src_addr'] = [0x20, 0x02, 0x0d, 0xb9,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01]
+                        pkt_ipv6['src_addr'] = self.networkPrefix + self.IPV6HOST
                     elif length == 9:
                         pkt_ipv6['src_addr'] = self.networkPrefix + pkt_lowpan[ptr:ptr+8]
                         ptr += 8

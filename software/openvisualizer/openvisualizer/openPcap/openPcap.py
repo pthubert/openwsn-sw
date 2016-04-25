@@ -14,8 +14,10 @@ import sys
 import threading
 import re
 import netifaces
-import pcapy
-import _winreg as reg
+
+if sys.platform.startswith('win32'):
+    import pcapy
+    import _winreg as reg
 
 from pydispatch                 import dispatcher
 from openvisualizer.eventBus    import eventBusClient
@@ -37,6 +39,7 @@ def getHWparam(interface=None):
         adapters = netifaces.interfaces()
 
         if sys.platform.startswith('win32'):
+            
             ADAPTER_KEY = r'SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}'
             win = ur'pci\ven_8086'  #to be checked with other systems
             with reg.OpenKey(reg.HKEY_LOCAL_MACHINE, ADAPTER_KEY) as devices:
@@ -68,7 +71,8 @@ def getHWparam(interface=None):
 
         elif sys.platform.startswith('linux'):
             matches = [adp for adp in adapters if re.match('eth', adp)]
-            adapterMac = matches[0]
+            adapterName = matches[0]
+            adapterMac = open('/sys/class/net/' + adapterName + '/address').readline()
 
         else:
             raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
@@ -76,7 +80,7 @@ def getHWparam(interface=None):
     #interface name is given
     else:
         if sys.platform.startswith('win32'):
-
+            
             hwkey = '{' + interface.partition('{')[-1].rpartition('}')[0] + '}'
             #retrieve mac addr
             adapterMac = netifaces.ifaddresses(hwkey)[netifaces.AF_LINK][0]['addr']
@@ -88,7 +92,7 @@ def getHWparam(interface=None):
         elif sys.platform.startswith('linux'):
             try:
                 adapterMac = open('/sys/class/net/' + interface + '/address').readline()
-
+		adapterName = interface
             except Exception as err:
                 print err
                 pass

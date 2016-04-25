@@ -178,8 +178,8 @@ class OpenTunLinux(openTun.OpenTun):
             
             #=====
             log.info("configuring IPv6 address...")
-            prefixStr = u.formatIPv6Addr(openTun.IPV6PREFIX)
-            hostStr   = u.formatIPv6Addr(openTun.IPV6HOST)
+            prefixStr = u.formatIPv6Addr(self.IPV6PREFIX)
+            hostStr   = u.formatIPv6Addr(self.IPV6HOST)
             
             v = os.system('ip tuntap add dev ' + ifname + ' mode tun user root')
             v = os.system('ip link set ' + ifname + ' up')
