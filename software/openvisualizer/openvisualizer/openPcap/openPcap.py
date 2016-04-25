@@ -14,7 +14,6 @@ import sys
 import threading
 import re
 import netifaces
-import pcapy
 import _winreg as reg
 
 from pydispatch                 import dispatcher
@@ -37,6 +36,8 @@ def getHWparam(interface=None):
         adapters = netifaces.interfaces()
 
         if sys.platform.startswith('win32'):
+            
+            import pcapy
             ADAPTER_KEY = r'SYSTEM\CurrentControlSet\Control\Class\{4D36E972-E325-11CE-BFC1-08002BE10318}'
             win = ur'pci\ven_8086'  #to be checked with other systems
             with reg.OpenKey(reg.HKEY_LOCAL_MACHINE, ADAPTER_KEY) as devices:
@@ -76,7 +77,8 @@ def getHWparam(interface=None):
     #interface name is given
     else:
         if sys.platform.startswith('win32'):
-
+            
+            import pcapy
             hwkey = '{' + interface.partition('{')[-1].rpartition('}')[0] + '}'
             #retrieve mac addr
             adapterMac = netifaces.ifaddresses(hwkey)[netifaces.AF_LINK][0]['addr']
