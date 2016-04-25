@@ -12,7 +12,6 @@ import threading
 import sys
 import re
 import netifaces
-import pcapy
 import pcap
 
 import openPcap

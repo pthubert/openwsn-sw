@@ -10,6 +10,7 @@ log.addHandler(logging.NullHandler())
 
 from openvisualizer.eventBus import eventBusClient
 import threading
+from openvisualizer.openConfig import openConfig
 import openvisualizer.openvisualizer_utils as u
 
 #============================ parameters ======================================

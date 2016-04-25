@@ -71,7 +71,8 @@ def getHWparam(interface=None):
 
         elif sys.platform.startswith('linux'):
             matches = [adp for adp in adapters if re.match('eth', adp)]
-            adapterMac = matches[0]
+            adapterName = matches[0]
+            adapterMac = open('/sys/class/net/' + adapterName + '/address').readline()
 
         else:
             raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
@@ -91,7 +92,7 @@ def getHWparam(interface=None):
         elif sys.platform.startswith('linux'):
             try:
                 adapterMac = open('/sys/class/net/' + interface + '/address').readline()
-
+		adapterName = interface
             except Exception as err:
                 print err
                 pass
