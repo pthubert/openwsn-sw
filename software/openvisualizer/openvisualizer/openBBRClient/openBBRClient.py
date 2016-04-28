@@ -71,6 +71,11 @@ class openBBRClient(eventBusClient.eventBusClient):
                     'signal'        : 'registrationEvent',
                     'callback'      : self._registrationEventNotif
                 },
+                {
+                    'sender'        : self.WILDCARD,
+                    'signal'        : 'RA_update',
+                    'callback'      : self._updateBBRdestination
+                },
             ]
         )
 
@@ -83,6 +88,7 @@ class openBBRClient(eventBusClient.eventBusClient):
         s_openConfig            = openConfig.openConfig()
         self.IPV6PREFIX         = s_openConfig.get('OPEN_IPV6PREFIX')
         self.IPV6HOST           = s_openConfig.get('OPEN_IPV6HOST')
+        self.BBR_ADR            = s_openConfig.get('OPEN_BBR_ADR')
 
         
         # local variables
@@ -145,7 +151,6 @@ class openBBRClient(eventBusClient.eventBusClient):
         '''
 
         #TODO: get dst from RA and save globally or interface_manager
-        dst = [0xfe, 0x80] + [0x00]*6 + [0xfa, 0x72, 0xea, 0xff, 0xfe, 0x83, 0xad, 0xbc]
         tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
 
         try:
@@ -161,7 +166,7 @@ class openBBRClient(eventBusClient.eventBusClient):
 
             ns = self._createIPv6NeighborSolicitation(self.adapterMac,  # mac
                                                       self.IPV6PREFIX + self.IPV6HOST,  # src,
-                                                      dst,
+                                                      self.BBR_ADR,
                                                       data,             # tgt
                                                       data[8:],         # uid
                                                       tid,
@@ -176,6 +181,9 @@ class openBBRClient(eventBusClient.eventBusClient):
             log.error(err)
             pass
 
+    def _updateBBRdestination(self):
+        
+        self.BBR_ADR            = s_openConfig.get('OPEN_BBR_ADR')
             
     #===== stats handling
     

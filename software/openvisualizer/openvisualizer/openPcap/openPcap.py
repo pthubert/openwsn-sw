@@ -21,6 +21,7 @@ if sys.platform.startswith('win32'):
 
 from pydispatch                 import dispatcher
 from openvisualizer.eventBus    import eventBusClient
+from openvisualizer.openConfig  import openConfig
 
 import openvisualizer.openvisualizer_utils as u
 
@@ -92,7 +93,7 @@ def getHWparam(interface=None):
         elif sys.platform.startswith('linux'):
             try:
                 adapterMac = open('/sys/class/net/' + interface + '/address').readline()
-		adapterName = interface
+                adapterName = interface
             except Exception as err:
                 print err
                 pass
@@ -213,7 +214,7 @@ class OpenPcap(eventBusClient.eventBusClient):
                     
         # dispatch to EventBus
         self.dispatch(
-            signal        = 'v6ToMesh',
+            signal        = 'v6ToMesh_pcap',
             data          = data,
         ) 
 
@@ -231,7 +232,29 @@ class OpenPcap(eventBusClient.eventBusClient):
         Creates the thread to read messages arriving from the pcap interface
         '''
         raise NotImplementedError('subclass must implement')
+
+    def _parseRouterAdvertisment(self, ra_src):
         
+        s_openConfig            = openConfig.openConfig()
+
+        try:
+            self.BBR_ADR         = s_openConfig.get('OPEN_BBR_ADR')
+
+            if not ra_src == self.BBR_ADR:
+                s_openConfig.set('OPEN_BBR_ADR', ra_src)
+                # dispatch to EventBus if changed
+                self.dispatch(
+                    signal        = 'RA_update',
+                )
+        except Exception as err:
+            log.error(err)
+
+            # set new entry
+            s_openConfig.set('OPEN_BBR_ADR', ra_src)
+            # dispatch to EventBus if changed
+            self.dispatch(
+                signal        = 'RA_update',
+            )
 #======================== helpers =========================================
     
 
@@ -258,26 +281,33 @@ class OpenPcap(eventBusClient.eventBusClient):
 
         if eth_type==self.ETHERTYPE_IPv6:
 
-#           if payload[40] == 0x80:
+           if payload[40] == 0x80:
+               pass
 #               print '\nEcho Request '
 #
-#           elif payload[40] == 0x81:
+           elif payload[40] == 0x81:
+               pass
 #               print '\nEcho Reply '
 #
-#           elif payload[40] == 0x86:
+           elif payload[40] == 0x86:
 #               print '\nRouter Advertisement'
+                self._parseRouterAdvertisment(eth_source)
 #
-#           elif payload[40] == 0x87:
+           elif payload[40] == 0x87:
+               pass
 #               print '\nNeigbor Solicitation '
 #
-#           elif payload[40] == 0x88:
+           elif payload[40] == 0x88:
+               pass
 #               print '\nNeighbor Advertisement '
 #
-#           elif payload[40] == 0x89:
+           elif payload[40] == 0x89:
+               pass
 #               print '\nRedirect '
 #
-#           else:
+           else:
+               pass
 #               print '\nType unknown'
 #
             # dispatch received packet
-            self._v6ToMesh_notif(payload)
+           self._v6ToMesh_notif(payload)

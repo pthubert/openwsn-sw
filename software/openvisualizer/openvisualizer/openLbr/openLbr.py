@@ -145,6 +145,11 @@ class OpenLbr(eventBusClient.eventBusClient):
                     'callback' : self._v6ToMesh_notif
                 },
                 {
+                    'sender'   : self.WILDCARD, 
+                    'signal'   : 'v6ToMesh_pcap', #signal from internet to the mesh network
+                    'callback' : self._v6ToMesh_notif
+                },
+                {
                     'sender'   : self.WILDCARD,
                     'signal'   : 'networkPrefix', #signal once a prefix is set.
                     'callback' : self._setPrefix_notif
@@ -181,7 +186,7 @@ class OpenLbr(eventBusClient.eventBusClient):
         '''
 
         #print sender
-        #print '_v6ToMesh : '+'-'.join('0x%02x'%b for b in data)
+        #print '-'.join('0x%02x'%b for b in data)
 
         try:
             
@@ -263,8 +268,11 @@ class OpenLbr(eventBusClient.eventBusClient):
                     log.error("detected possible downstream link on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr'])))
                 if ((ipv6dic['hop_flags'] & self.R_FLAG) == self.R_FLAG):
                     #error -- loop in the route
-                    print ipv6dic
-                    log.error("detected possible loop on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr'])))
+                    try:
+                        log.error("detected possible loop on upstream route from {0}".format(",".join(str(c) for c in ipv6dic['src_addr'])))
+                    except Exception:
+                        print "detected possible loop on upstream route"
+                        pass
                 #skip the header and process the rest of the message.
                 ipv6dic['next_header'] = ipv6dic['hop_next_header']
                 

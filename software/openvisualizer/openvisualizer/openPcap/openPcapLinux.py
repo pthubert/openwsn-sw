@@ -53,7 +53,7 @@ class PcapReadThread(threading.Thread):
         while self.goOn:    
             try:
                 for ts,pk in self.adapter:
-                    self._rxpacket_handler(pk)
+                    self.callback(pk)
 
             except Exception as err:
                 log.error(err)
