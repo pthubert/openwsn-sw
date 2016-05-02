@@ -40,22 +40,24 @@ def checksum(byteList):
         w = byteList[i] + (byteList[i+1] << 8)
         s = carry_around_add(s, w)
     return ~s & 0xffff
- 
+
 
 class openBBRClient(eventBusClient.eventBusClient):
     """
-        This is the backbone Router client task
-        It interfaces with the ethernet abstraction to get the MAC address and the
-        IPv6 linklocal address on that port, and uses them to build NS and RS and
-        send them over the ethernet.
-        It listens to messages coming from the ethernet and is interested in RA to
-        learn the prefix and NA to confirm that NS where processed adequately
-        finally, it listens to messages from 6LBR (tbd) and RPL root (new message
-        for this project) to learn the registration status. It is expected that the
-        RPL root sends
-    """ 
+    This is the backbone Router client task
+    It interfaces with the ethernet abstraction to get the MAC address and the
+    IPv6 linklocal address on that port, and uses them to build NS and RS and
+    send them over the ethernet.
+    It listens to messages coming from the ethernet and is interested in RA to
+    learn the prefix and NA to confirm that NS where processed adequately
+    finally, it listens to messages from 6LBR (tbd) and RPL root (new message
+    for this project) to learn the registration status. It is expected that the
+    RPL root send
+    """
+	
     ARO_LIFETIME   = 300  # in sec
 
+	
     def __init__(self):
     
         # log
@@ -90,7 +92,12 @@ class openBBRClient(eventBusClient.eventBusClient):
         self.IPV6HOST           = s_openConfig.get('OPEN_IPV6HOST')
         self.BBR_ADR            = s_openConfig.get('OPEN_BBR_ADR')
 
-        
+	if self.BBR_ADR is None:
+	    self.dispatch(
+		signal	= 'v6ToInternet',
+		data	= self._createIPv6RouterSolicitation(self.adapterMac, self.IPV6PREFIX + self.IPV6HOST),
+	    )
+
         # local variables
         self.statsLock          = threading.Lock()
         self.stats              = {}
@@ -180,9 +187,9 @@ class openBBRClient(eventBusClient.eventBusClient):
             log.error(err)
             pass
 
-    def _updateBBRdestination(self):
+    def _updateBBRdestination(self,sender,signal,data):
         
-        self.BBR_ADR            = s_openConfig.get('OPEN_BBR_ADR')
+        self.BBR_ADR            = data
             
     #===== stats handling
     
@@ -345,7 +352,7 @@ class openBBRClient(eventBusClient.eventBusClient):
         pseudo += [0x00]*3                          # zero
         pseudo += [58]                              # next header
         pseudo += NeighborSolicitation[40:]         # ICMPv6 header+payload
-                
+              
         crc     = checksum(pseudo)                  #  compute checksum
         NeighborSolicitation[42]   = (crc&0x00ff)>>0
         NeighborSolicitation[43]   = (crc&0xff00)>>8

@@ -245,15 +245,17 @@ class OpenPcap(eventBusClient.eventBusClient):
                 # dispatch to EventBus if changed
                 self.dispatch(
                     signal        = 'RA_update',
+         	    data 	  = ra_src,
                 )
         except Exception as err:
             log.error(err)
-
             # set new entry
             s_openConfig.set('OPEN_BBR_ADR', ra_src)
-            # dispatch to EventBus if changed
+
+	    # dispatch to EventBus if changed
             self.dispatch(
                 signal        = 'RA_update',
+		data 	      = ra_src,
             )
 #======================== helpers =========================================
     
@@ -279,6 +281,8 @@ class OpenPcap(eventBusClient.eventBusClient):
 
         payload              = payload[self.LEN_HDR_ETH:]    # cutoff ethernet header
 
+	ipv6_source	     = payload[8:8+16]
+
         if eth_type==self.ETHERTYPE_IPv6:
 
            if payload[40] == 0x80:
@@ -291,7 +295,7 @@ class OpenPcap(eventBusClient.eventBusClient):
 #
            elif payload[40] == 0x86:
 #               print '\nRouter Advertisement'
-                self._parseRouterAdvertisment(eth_source)
+                self._parseRouterAdvertisment(ipv6_source)
 #
            elif payload[40] == 0x87:
                pass
