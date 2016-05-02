@@ -147,10 +147,9 @@ class openBBRClient(eventBusClient.eventBusClient):
         Handles a registration event, typically a DAO or no-DAO, or DAR.
                 
         This function dispatches the 6LoWPAN ND packet with signal
-        'bytesToMesh'.
+        'v6ToInternet'.
         '''
 
-        #TODO: get dst from RA and save globally or interface_manager
         tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
 
         try:
@@ -166,7 +165,7 @@ class openBBRClient(eventBusClient.eventBusClient):
 
             ns = self._createIPv6NeighborSolicitation(self.adapterMac,  # mac
                                                       self.IPV6PREFIX + self.IPV6HOST,  # src,
-                                                      self.BBR_ADR,
+                                                      self.BBR_ADR,     # dst
                                                       data,             # tgt
                                                       data[8:],         # uid
                                                       tid,
@@ -352,4 +351,53 @@ class openBBRClient(eventBusClient.eventBusClient):
         NeighborSolicitation[43]   = (crc&0xff00)>>8
         
         return NeighborSolicitation                 # There you go
+
+
+    def _createIPv6RouterSolicitation(self, mac, src):
+
+        # IANA assigned values stored in a constant class
+        IANA = IANA_CONSTANTS.IANA_CONSTANTS()
+        IPv6_ND = IANA.IPv6_ND()
+                
+        # Init a list for the bytestring
+        RouterSolicitation  = []
+        
+        # IPv6 header
+        RouterSolicitation    += [0x6E,0x00,0x00,0x00]       # version = IPv6, TF
+        RouterSolicitation    += [0x00, 0x10]                # length including ARO option
+        RouterSolicitation    += [IANA.ICMPv6]               # Next header (0x3A ==ICMPv6)
+        RouterSolicitation    += [0xff]                      # HLIM
+        RouterSolicitation    += src                         # source address
+
+        RouterSolicitation    += [0xff,0x02,0x00,0x00]       # all-routers 
+        RouterSolicitation    += [0x00,0x00,0x00,0x00]
+        RouterSolicitation    += [0x00,0x00,0x00,0x00]
+        RouterSolicitation    += [0x00,0x00,0x00,0x02]       # multicast address
+        
+        # ICMPv6 header
+        RouterSolicitation    += [IPv6_ND.RS]                # type (133==Router Solicitation)
+        RouterSolicitation    += [0]                         # code
+        RouterSolicitation    += [0x00,0x00]                 # Checksum (to be filled out later)
+        RouterSolicitation    += [0x00,0x00,0x00,0x00]       # Reserved
+        
+        # Target Address
+        #NeighborSolicitation    += tgt                      # target address
+        
+        # SLLA option
+        RouterSolicitation    += [IPv6_ND.SLLAO]             # type = source LLA option   
+        RouterSolicitation    += [1]                         # Length in group of 8 bytes    
+        RouterSolicitation    += mac                         # Ethernet MAC@ of this node
+       
+        # calculate ICMPv6 checksum
+        pseudo  = RouterSolicitation[8:8+32]                 # concat source address and destination addresses
+        pseudo += [0x00]*3+[len(RouterSolicitation[40:])]    # ULP length
+        pseudo += [0x00]*3                                   # zero
+        pseudo += [58]                                       # next header
+        pseudo += RouterSolicitation[40:]                    # ICMPv6 header+payload
+                
+        crc     = checksum(pseudo)                           #  compute checksum
+        RouterSolicitation[42]   = (crc&0x00ff)>>0
+        RouterSolicitation[43]   = (crc&0xff00)>>8
+        
+        return RouterSolicitation                            # There you go
     

@@ -69,9 +69,9 @@ class OpenTun(eventBusClient.eventBusClient):
                     'callback'    : self._getNetworkPrefix_notif,
                 },
                 {
-                    'sender'   : self.WILDCARD,
-                    'signal'   : 'v6ToInternet',
-                    'callback' : self._v6ToInternet_notif
+                    'sender'      : self.WILDCARD,
+                    'signal'      : 'v6ToInternet',
+                    'callback'    : self._v6ToInternet_notif
                 },
             ]
         )
