@@ -18,6 +18,7 @@ log.addHandler(logging.NullHandler())
 
 import threading
 
+import openvisualizer.openvisualizer_utils as u
 from openvisualizer.eventBus import eventBusClient
 
 class topology(eventBusClient.eventBusClient):
@@ -68,7 +69,7 @@ class topology(eventBusClient.eventBusClient):
                 d = { 'id': mote, 'value': { 'label': mote } } 
                 states.append(d)
         
-        return (states,edges)
+        return states, edges
         
     def updateParents(self,sender,signal,data):
         ''' inserts parent information into the parents dictionary '''

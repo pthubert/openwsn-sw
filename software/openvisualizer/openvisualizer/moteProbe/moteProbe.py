@@ -44,25 +44,32 @@ def findSerialPorts():
     
     if os.name=='nt':
         path = 'HARDWARE\\DEVICEMAP\\SERIALCOMM'
-        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
-        for i in range(winreg.QueryInfoKey(key)[1]):
-            try:
-                val = winreg.EnumValue(key,i)
-            except:
-                pass
-            else:
-                if   val[0].find('VCP')>-1:
-                    serialports.append( (str(val[1]),BAUDRATE_TELOSB) )
-                elif val[0].find('Silabser')>-1:
-                    serialports.append( (str(val[1]),BAUDRATE_GINA) )
-                elif val[0].find('ProlificSerial')>-1:
-                    serialports.append( (str(val[1]),BAUDRATE_WSN430) )
+        skip = False
+        try :
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
+        except :
+            # No mote is connected
+            skip = True
+        if not skip :
+            for i in range(winreg.QueryInfoKey(key)[1]):
+                try:
+                    val = winreg.EnumValue(key,i)
+                except:
+                    pass
+                else:
+                    if   val[0].find('VCP')>-1:
+                        serialports.append( (str(val[1]),BAUDRATE_TELOSB) )
+                    elif val[0].find('Silabser')>-1:
+                        serialports.append( (str(val[1]),BAUDRATE_GINA) )
+                    elif val[0].find('ProlificSerial')>-1:
+                        serialports.append( (str(val[1]),BAUDRATE_WSN430) )
     elif os.name=='posix':
         if platform.system() == 'Darwin':
-            portMask = '/dev/tty.usbserial-*'
+            portMask = ['/dev/tty.usbserial-*']
         else:
-            portMask = '/dev/ttyUSB*'
-        serialports = [(s,BAUDRATE_GINA) for s in glob.glob(portMask)]
+            portMask = ['/dev/ttyUSB*', '/dev/ttyAMA*']
+        for mask in portMask :
+            serialports += [(s,BAUDRATE_GINA) for s in glob.glob(mask)]
     
     # log
     log.info("discovered following COM port: {0}".format(['{0}@{1}'.format(s[0],s[1]) for s in serialports]))
