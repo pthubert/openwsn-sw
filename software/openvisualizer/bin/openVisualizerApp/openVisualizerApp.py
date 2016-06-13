@@ -12,6 +12,9 @@ import sys
 import os
 import logging
 import json
+
+from openvisualizer.OVtracer import OVtracer
+
 log = logging.getLogger('openVisualizerApp')
 
 from openvisualizer.openConfig    import openConfig
@@ -28,6 +31,7 @@ from openvisualizer.RPL           import topology
 from openvisualizer               import appdirs
 
 from openvisualizer.openBBRClient import openBBRClient
+from openvisualizer.remoteConnectorServer   import remoteConnectorServer
 
 import openvisualizer.openvisualizer_utils as u
     
@@ -37,7 +41,7 @@ class OpenVisualizerApp(object):
     top-level functionality for several UI clients.
     '''
     
-    def __init__(self,confdir,datadir,logdir,simulatorMode,numMotes,trace,debug,simTopology,iotlabmotes, pathTopo):
+    def __init__(self,confdir,datadir,logdir,simulatorMode,numMotes,trace,debug,simTopology,iotlabmotes, pathTopo, roverMode):
         
         # create singleton which hold global configurations
         s_openConfig              = openConfig.openConfig()
@@ -55,7 +59,8 @@ class OpenVisualizerApp(object):
         self.debug                = debug
         self.iotlabmotes          = iotlabmotes
         self.pathTopo             = pathTopo
-        
+        self.roverMode            = roverMode
+
         # local variables
         self.eventBusMonitor      = eventBusMonitor.eventBusMonitor()
         self.openLbr              = openLbr.OpenLbr()
@@ -108,7 +113,7 @@ class OpenVisualizerApp(object):
             
         else:
             # in "hardware" mode, motes are connected to the serial port
-            
+
             self.moteProbes       = [
                 moteProbe.moteProbe(serialport=p) for p in moteProbe.findSerialPorts()
             ]
@@ -122,7 +127,11 @@ class OpenVisualizerApp(object):
         self.moteStates           = [
             moteState.moteState(mc) for mc in self.moteConnectors
         ]
-        
+
+        if self.roverMode :
+            self.remoteConnectorServer = remoteConnectorServer.remoteConnectorServer()
+
+
         # boot all emulated motes, if applicable
         if self.simulatorMode:
             self.simengine.pause()
@@ -209,7 +218,60 @@ class OpenVisualizerApp(object):
                     return ms
         else:
             return None
-        
+
+    def refreshRoverMotes(self, roverMotes):
+        '''Connect the list of roverMotes to openvisualiser.
+
+        :param roverMotes : list of the roverMotes to add
+        '''
+        # create a moteConnector for each roverMote
+        for roverIP, value in roverMotes.items() :
+            if not isinstance(value , str):
+                for rm in roverMotes[roverIP] :
+                        exist = False
+                        for mc in self.moteConnectors :
+                            if mc.serialport == rm :
+                                exist = True
+                                break
+                        if not exist :
+                            moc = moteConnector.moteConnector(rm)
+                            self.moteConnectors       += [moc]
+                            self.moteStates += [moteState.moteState(moc)]
+        self.remoteConnectorServer.initRoverConn(roverMotes)
+
+    def removeRoverMotes(self, roverIP, moteList):
+        ''' Remove moteconnect and motestates from list (NOT implemented: quit())
+            Stop ZMQ connection
+        :param roverIP
+        '''
+
+        for moteid in moteList:
+            ms = self.getMoteState(moteid)
+            if ms:
+                self.moteConnectors.remove(ms.moteConnector)
+                self.moteStates.remove(ms)
+            else:
+                for mss in self.moteStates:
+                    if moteid == mss.moteConnector.serialport:
+                        self.moteConnectors.remove(mss.moteConnector)
+                        self.moteStates.remove(mss)
+        self.remoteConnectorServer.closeRoverConn(roverIP)
+
+
+
+    def getMoteDict(self):
+        '''
+        Returns a dictionary with key-value entry: (moteid: serialport)
+        '''
+        moteDict = {}
+        for ms in self.moteStates:
+            addr = ms.getStateElem(moteState.moteState.ST_IDMANAGER).get16bAddr()
+            if addr:
+                moteDict[''.join(['%02x' % b for b in addr])] = ms.moteConnector.serialport
+            else:
+                moteDict[ms.moteConnector.serialport] = None
+        return moteDict
+
 
 #============================ main ============================================
 import logging.config
@@ -217,7 +279,7 @@ from argparse       import ArgumentParser
 
 DEFAULT_MOTE_COUNT = 3
 
-def main(parser=None):
+def main(parser=None, roverMode=False):
     '''
     Entry point for application startup by UI. Parses common arguments.
     
@@ -225,7 +287,7 @@ def main(parser=None):
                     to allow that module to pre-parse specific arguments
     :rtype:         openVisualizerApp object
     '''
-    if (parser == None):
+    if parser is None:
         parser = ArgumentParser()
         
     _addParserArgs(parser)
@@ -247,7 +309,7 @@ def main(parser=None):
     elif argspace.numMotes > 0:
         # --simCount implies --sim
         argspace.simulatorMode = True
-    elif argspace.simulatorMode == True:
+    elif argspace.simulatorMode:
         # default count when --simCount not provided
         argspace.numMotes = DEFAULT_MOTE_COUNT
 
@@ -276,6 +338,7 @@ def main(parser=None):
         simTopology     = argspace.simTopology,
         iotlabmotes     = argspace.iotlabmotes,
         pathTopo        = argspace.pathTopo,
+        roverMode       = roverMode
     )
 
 def _addParserArgs(parser):
@@ -327,7 +390,8 @@ def _addParserArgs(parser):
         action     = 'store',
         help       = 'a topology can be loaded from a json file'
     )
-    
+
+
 def _forceSlashSep(ospath, debug):
     '''
     Converts a Windows-based path to use '/' as the path element separator.
@@ -376,13 +440,13 @@ def _initExternalDirs(appdir, debug):
             raise RuntimeError('Config file not in expected directory: {0}'.format(appdir))
         if debug:
             print 'App data found via appdir'
-        return (appdir, appdir, appdir)
+        return appdir, appdir, appdir
     
     filedir = os.path.dirname(__file__)
     if _verifyConfpath(filedir):
         if debug:
             print 'App data found via openVisualizerApp.py'
-        return (filedir, filedir, filedir)
+        return filedir, filedir, filedir
         
     confdir      = appdirs.site_config_dir('openvisualizer', 'OpenWSN')
     # Must use system log dir on Linux since running as superuser.
@@ -398,7 +462,7 @@ def _initExternalDirs(appdir, debug):
                 os.mkdir(logdir)
             if debug:
                 print 'App data found via native OS'
-            return (confdir, datadir, logdir)
+            return confdir, datadir, logdir
         else:
             raise RuntimeError('Cannot find expected data directory: {0}'.format(datadir))
 
@@ -414,7 +478,7 @@ def _initExternalDirs(appdir, debug):
         if debug:
             print 'App data found via openvisualizer package'
             
-        return (datadir, datadir, logdir)
+        return datadir, datadir, logdir
     else:
         raise RuntimeError('Cannot find expected data directory: {0}'.format(datadir))
                     

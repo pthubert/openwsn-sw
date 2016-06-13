@@ -38,7 +38,7 @@ with open(os.path.join('openvisualizer', 'data', 'requirements.txt')) as f:
 
 def appdirGlob(globstr, subdir=''):
     appdir = 'bin/openVisualizerApp'
-    if (subdir == ''):
+    if subdir == '':
         return glob.glob('/'.join([appdir, globstr]))
     else:
         return glob.glob('/'.join([appdir, subdir, globstr]))
@@ -79,8 +79,8 @@ setup(
                         'openvisualizer.lbrClient', 'openvisualizer.moteConnector', 
                         'openvisualizer.moteProbe', 'openvisualizer.moteState', 
                         'openvisualizer.openLbr', 'openvisualizer.openTun', 
-                        'openvisualizer.openType', 'openvisualizer.openUI', 
-                        'openvisualizer.RPL', 'openvisualizer.SimEngine'],
+                        'openvisualizer.openType', 'openvisualizer.openUI',
+                        'openvisualizer.RPL', 'openvisualizer.SimEngine', 'openvisualizer.remoteConnectorServer'],
     scripts          = appdirGlob('openVisualizer*.py'),
     package_dir      = {'': '.', 'openvisualizer': 'openvisualizer'},
     # Copy simdata files by extension so don't copy .gitignore in that directory.
