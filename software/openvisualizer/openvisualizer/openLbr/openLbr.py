@@ -425,7 +425,9 @@ class OpenLbr(eventBusClient.eventBusClient):
         
         # tf
         if ipv6['traffic_class']!=0:
-            raise NotImplementedError('traffic_class={0} unsupported'.format(ipv6['traffic_class']))
+            if ipv6['traffic_class']!=224: # cisco router 
+                raise NotImplementedError('traffic_class={0} unsupported'.format(ipv6['traffic_class']))
+
         if ipv6['flow_label']!=0:
             raise NotImplementedError('flow_label={0} unsupported'.format(ipv6['flow_label']))
         lowpan['tf']         = []

@@ -54,10 +54,9 @@ class openBBRClient(eventBusClient.eventBusClient):
     for this project) to learn the registration status. It is expected that the
     RPL root send
     """
-	
+
     ARO_LIFETIME   = 300  # in sec
 
-	
     def __init__(self):
     
         # log
@@ -92,11 +91,11 @@ class openBBRClient(eventBusClient.eventBusClient):
         self.IPV6HOST           = s_openConfig.get('OPEN_IPV6HOST')
         self.BBR_ADR            = s_openConfig.get('OPEN_BBR_ADR')
 
-	if self.BBR_ADR is None:
-	    self.dispatch(
-		signal	= 'v6ToInternet',
-		data	= self._createIPv6RouterSolicitation(self.adapterMac, self.IPV6PREFIX + self.IPV6HOST),
-	    )
+        if self.BBR_ADR is None:
+            self.dispatch(
+		    signal	= 'v6ToInternet',
+		    data	= self._createIPv6RouterSolicitation(self.adapterMac, self.IPV6PREFIX + self.IPV6HOST),
+	        )
 
         # local variables
         self.statsLock          = threading.Lock()
