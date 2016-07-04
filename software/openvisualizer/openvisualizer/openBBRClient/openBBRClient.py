@@ -159,22 +159,14 @@ class openBBRClient(eventBusClient.eventBusClient):
         tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
 
         try:
-            
-            ## build NS ARO based on lifetime, uniqueID and Seq counter
-            #ns = self.buildGenericNS(lifetime, uid, seq)
-            
-            ## dispatch
-            #self.dispatch(
-            #    signal       = 'bytesToMesh',
-            #    data         = (ns,ns_bytes),
-            #)
+            print '-'.join('0x%02x'%b for b in data)
 
             ns = self._createIPv6NeighborSolicitation(self.adapterMac,  # mac
                                                       self.IPV6PREFIX + self.IPV6HOST,  # src,
                                                       self.BBR_ADR,     # dst
-                                                      data,             # tgt
-                                                      data[8:],         # uid
-                                                      tid,
+                                                      data,             # tgt - 16byte
+                                                      data[8:],         # uid - 8 byte
+                                                      tid,              # dao_transit_information['Transit_information_path_sequence'] - 8 byte
                                                       self.ARO_LIFETIME # lifetime
                                                       )
             self.dispatch(
