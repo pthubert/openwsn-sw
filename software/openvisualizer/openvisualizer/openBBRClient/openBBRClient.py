@@ -165,7 +165,7 @@ class openBBRClient(eventBusClient.eventBusClient):
                                                       data[0],          # tgt - 16byte
                                                       data[0][8:],      # uid - 8 byte
                                                       data[1],          # dao_transit_information['Transit_information_path_sequence'] - 1 byte
-                                                      self.ARO_LIFETIME # lifetime
+                                                      data[2],          # dao_transit_information['Transit_information_path_lifetime'] - lifetime
                                                       )
             self.dispatch(
                 signal      = 'v6ToInternet',

@@ -278,7 +278,7 @@ class RPL(eventBusClient.eventBusClient):
         # trigger NS
         self.dispatch(
             signal          = 'registrationEvent',
-            data            =  (tup[0],dao_transit_information['Transit_information_path_sequence'])  # dispatch src
+            data            =  (tup[0],dao_transit_information['Transit_information_path_sequence'],dao_transit_information['Transit_information_path_lifetime'])  # dispatch src
         )
         
         #with self.dataLock:
