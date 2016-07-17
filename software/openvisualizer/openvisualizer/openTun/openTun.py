@@ -16,6 +16,48 @@ from openvisualizer.openConfig  import openConfig
 from openvisualizer.eventBus import eventBusClient
 import openvisualizer.openvisualizer_utils as u
     
+def getHWparam(interface=None):
+    """
+    returns the hw information Name and MAC of the given interface, e.g. 'eth0'
+
+    """
+    adapterMac = [0x00]*8
+    
+    if interface is None:
+        adapters = netifaces.interfaces()
+
+        if sys.platform.startswith('linux'):
+                matches = [adp for adp in adapters if re.match('tun', adp)]
+                adapterName = matches[0]
+                adapterMac = open('/sys/class/net/' + adapterName + '/address').readline()
+
+        else:
+               raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
+
+    #interface name is given
+    else:
+        if sys.platform.startswith('linux'):
+            try:
+                adapterMac = open('/sys/class/net/' + interface + '/address').readline()
+                adapterName = interface
+            except Exception as err:
+                print err
+                pass
+
+        else:
+            raise NotImplementedError('Platform {0} not supported'.format(sys.platform))
+    
+        
+    #format mac addr
+    adapterMac = adapterMac.replace(':','').strip()
+    adapterMac = u.hex2buf(adapterMac)
+
+    return adapterMac, adapterName
+
+
+def _getAdapterMac_notif(self,sender,signal,data):
+    return self.adapterMac
+
 def create():
     '''
     Module-based Factory method to create instance based on operating system
@@ -72,6 +114,11 @@ class OpenTun(eventBusClient.eventBusClient):
                     'sender'      : self.WILDCARD,
                     'signal'      : 'v6ToInternet',
                     'callback'    : self._v6ToInternet_notif
+                },
+                {
+                    'sender'        : self.WILDCARD,
+                    'signal'        : 'getAdapterMac',
+                    'callback'      : self._getAdapterMac_notif
                 },
             ]
         )

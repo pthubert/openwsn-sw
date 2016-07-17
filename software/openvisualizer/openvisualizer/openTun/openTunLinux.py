@@ -140,11 +140,6 @@ class OpenTunLinux(openTun.OpenTun):
         # abort if not tun interface
         if not self.tunIf:
             return
-        # drop icmpv6, udp message from outer network
-        if data[6] == IANA.ICMPv6:  # next_header == icmpv6
-            return
-        if data[6] == 17:
-            return
          
         else:
             # add tun header

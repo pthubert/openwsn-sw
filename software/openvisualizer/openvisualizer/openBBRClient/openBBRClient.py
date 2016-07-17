@@ -55,8 +55,7 @@ class openBBRClient(eventBusClient.eventBusClient):
     RPL root send
     """
 
-    ARO_LIFETIME   = 300  # in sec
-
+    
     def __init__(self):
     
         # log
@@ -155,8 +154,6 @@ class openBBRClient(eventBusClient.eventBusClient):
         This function dispatches the 6LoWPAN ND packet with signal
         'v6ToInternet'.
         '''
-
-        tid = int(time.time()/(0.9*60*self.ARO_LIFETIME/60))%128
 
         try:	    
             ns = self._createIPv6NeighborSolicitation(self.adapterMac,  # mac
